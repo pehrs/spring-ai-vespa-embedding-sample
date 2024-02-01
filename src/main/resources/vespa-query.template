@@ -1,0 +1,9 @@
+{
+  "yql": "select {fields} from {docType} where {targetHits}nearestNeighbor({embeddingFieldName},{rankingInputName})",
+  "input": {
+    "query({rankingInputName})": [
+      {embedding}
+    ]
+  },
+  "ranking": "{rankingName}"
+}

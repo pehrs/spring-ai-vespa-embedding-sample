@@ -1,0 +1,5 @@
+{
+    "hits": 10,
+    "offset": 200,
+    "yql": "select sddocname, documentid, content from embeddings where true"   
+}

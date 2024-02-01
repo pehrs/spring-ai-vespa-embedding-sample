@@ -1,0 +1,49 @@
+@startuml spring-ai-vespa-embedding-sample
+left to right direction
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+HIDE_STEREOTYPE()
+WithoutPropertyHeader()
+
+
+Person(personAlias, "User")
+System(ragService, "RAG-Service", "<<spring-ai service>>")
+System(populateVespaVectorStore, "PopulateVespaVectorStore", "<<spring-ai app>>")
+
+System(rssSource, "http://svt.se", "<<RSS source>>")
+
+System_Boundary(vespaCluster, "Vespa Cluster") {
+  WithoutPropertyHeader()
+  SetPropertyHeader("Field","Type")
+  AddProperty("content", "string")
+  AddProperty("embedding", "tensor<float>(d0[4096])")
+  System(vespaEmbeddings, "embeddings", "<<Vespa Doc-Type>>")
+}
+
+System_Boundary(ollama, "Ollama") {
+  WithoutPropertyHeader()
+  SetPropertyHeader("Model","Parameter Size", "Quantization Level")
+  AddProperty("mistral", "7B", "Q4_0")
+  System(mistral, "mistral", "<<LLM>>")
+}
+
+Rel(personAlias, ragService, "(5) GET http://localhost:8082/ask", "", "{'question': 'What are the top 2 news?'}")
+
+Rel(ragService, mistral, "(6) POST http://localhost:11434/api/embeddings", "", "Generate Embedding for query")
+
+Rel(ragService, vespaEmbeddings, "(7) http://localhost:8080/query/", "", "Similarity query\n{'yql': '...'}")
+
+Rel(ragService, mistral, "(8) POST http://localhost:11434/api/generate", "", "Prompt")
+
+
+
+Rel(personAlias, populateVespaVectorStore, "(1) run application", "", "")
+
+Rel(populateVespaVectorStore, rssSource, "(2) http://www.svt.se/nyheter/rss.xml", "", "Get RSS feed")
+Rel(populateVespaVectorStore, mistral, "(3) POST http://localhost:11434/api/embeddings", "", "Generate Embedding for documents")
+Rel(populateVespaVectorStore, vespaEmbeddings, "(4) http://localhost:8080/document/v1/", "", "Insert embeddings")
+
+
+
+@enduml
+

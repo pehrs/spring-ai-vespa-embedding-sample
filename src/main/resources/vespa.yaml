@@ -1,0 +1,13 @@
+vespa:
+  container:
+    endpoint: http://localhost:8080
+# Note that the trailing slash is important (Vespa is picky that way)
+    queryUri: /search/
+  namespace: llm
+  docType: embeddings
+  embeddingSize: 4096
+  rankingName: recommendation
+  rankingInputName: q_embedding
+  embeddingFieldName: embedding
+  contentFieldName: content
+  targetHits: 10

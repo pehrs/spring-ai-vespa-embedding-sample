@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.2.1</version>
+    <relativePath/> <!-- lookup parent from repository -->
+  </parent>
+  <groupId>com.pehrs</groupId>
+  <artifactId>spring-ai-vespa-embedding-sample</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>spring-ai-vespa-embedding-sample</name>
+  <description>RAG sample with Spring AI and Vespa AI Embeddings</description>
+  <properties>
+    <start-class>com.pehrs.spring.ai.service.RagSampleService</start-class>
+
+    <!-- Get version from https://search.maven.org/search?q=a:documentapi -->
+    <vespa.version>8.295.13</vespa.version>
+
+    <!-- Spring AI is still in development -->
+    <!-- check for new versions at: https://repo.spring.io/ui/native/snapshot/org/springframework/ai/spring-ai/ -->
+    <SPRING_AI_VERSION>0.8.0-SNAPSHOT</SPRING_AI_VERSION>
+
+    <!-- plugins -->
+    <maven-jar-plugin.version>2.6</maven-jar-plugin.version>
+    <maven-assembly-plugin.version>3.6.0</maven-assembly-plugin.version>
+    <maven-compiler-plugin.version>3.1</maven-compiler-plugin.version>
+  </properties>
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-batch</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-reactor-netty</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webflux</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-loader</artifactId>
+    </dependency>
+
+    <!-- Simple console metrics -->
+    <!-- FIXME: should be replaced with some spring boot observability stuff -->
+    <dependency>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+      <version>4.2.25</version>
+    </dependency>
+
+    <!--
+        The vespa documentapi does not work very well with vespa in a docker container...
+    <dependency>
+        <groupId>com.yahoo.vespa</groupId>
+        <artifactId>documentapi</artifactId>
+        <version>${vespa.version}</version>
+        </dependency>
+        -->
+
+    <!-- We need a datasource for the batch jobs -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.2.224</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-ollama-spring-boot-starter</artifactId>
+      <version>${SPRING_AI_VERSION}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.ai</groupId>
+      <artifactId>spring-ai-tika-document-reader</artifactId>
+      <version>${SPRING_AI_VERSION}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-xml</artifactId>
+      <version>2.15.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven-compiler-plugin.version}</version>
+        <configuration>
+          <source>17</source>
+          <target>17</target>
+          <encoding>UTF8</encoding>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${maven-jar-plugin.version}</version>
+      </plugin>
+      <!--
+     Not using the spring boot maven plugin as it does not allow for
+     multiple applications coexisting in the same jar.
+     See the maven-assembly-plugin below.
+     <plugin>
+         <groupId>org.springframework.boot</groupId>
+         <artifactId>spring-boot-maven-plugin</artifactId>
+         <executions>
+             <execution>
+                 <configuration>
+                     <mainClass>com.pehrs.spring.ai.service.RagSampleService</mainClass>
+                 </configuration>
+             </execution>
+         </executions>
+     </plugin>
+     -->
+      <plugin>
+        <!--
+        We are using the maven-assembly-plugin to create a distribution
+        that can run multiple spring boot applications.
+
+        The results end up in target/spring-ai-vespa-embedding-sample-0.0.1-SNAPSHOT-assembly/
+        -->
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>${maven-assembly-plugin.version}</version>
+        <configuration>
+          <descriptors>
+            <descriptor>src/assembly/assembly.xml</descriptor>
+          </descriptors>
+          <finalName>${project.build.finalName}</finalName>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <repositories>
+    <!-- As Spring AI is yet to be released we need to get it from the developers at Broadcom Inc -->
+    <repository>
+      <id>spring-snapshot</id>
+      <name>Spring Snapshot Repository</name>
+      <url>https://repo.spring.io/snapshot</url>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
+    <!-- We need some stuff from the central maven repo as well -->
+    <repository>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>central</id>
+      <name>Maven Central Repository</name>
+      <url>http://repo1.maven.org/maven2</url>
+    </repository>
+  </repositories>
+
+</project>

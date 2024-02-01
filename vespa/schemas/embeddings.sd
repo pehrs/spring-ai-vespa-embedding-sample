@@ -1,0 +1,20 @@
+schema embeddings {
+    document embeddings {
+        field content type string {
+            indexing: index | summary
+            index: enable-bm25
+        }
+        field embedding type tensor<float>(d0[4096]) {
+            indexing: index | summary | attribute
+        }
+    }
+
+    rank-profile recommendation inherits default {
+        inputs {
+            query(q_embedding) tensor<float>(d0[4096])
+        }
+        first-phase {
+          expression: closeness(field, embedding)
+        }
+    }
+}
