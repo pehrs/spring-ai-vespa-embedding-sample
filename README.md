@@ -5,7 +5,7 @@ This repo is the result of me experimenting with running LLM models
 [ollama](https://ollama.ai/) and [vespa](https://vespa.ai/). 
 I wanted to run everything locally and not rely on any online services. 
 
-This is a simple RAG Spring AI application running everything locally 
+This is a simple RAG Spring AI service running everything locally 
 that uses Vespa as the VectorStore and an ollama model 
 for building embeddings and prompting.
 
