@@ -15,7 +15,8 @@ The repo has two (spring-boot) applications:
 Batch job that will get a number of news articles via RSS feeds and insert them into Vespa for 
 the RAG calling the ollama to generate the embedding vector.
 - [RagSampleService](src/main/java/com/pehrs/spring/ai/service/RagSampleService.java) - Service that will use Vespa to do a similarity search 
-to provide set of documents for the PromptTemplate
+to provide set of documents for the PromptTemplate. The service uses this [template](src/main/resources/rag-prompt-template.st).
+
 
 ![Overview](spring-ai-vespa-embedding-sample.svg)
 
@@ -23,7 +24,6 @@ This code is built on-top of these samples:
 - https://github.com/habuma/spring-ai-rag-example
 - https://github.com/chenkunyun/spring-boot-assembly/tree/master
 
-The RagSampleApp this [template](src/main/resources/rag-prompt-template.st) to create the prompt.
 
 Remember that spring-ai is still in development. 
 Please check out these for updates:
