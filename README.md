@@ -23,6 +23,7 @@ to provide set of documents for the PromptTemplate. The service uses this [templ
 This code is built on-top of these samples:
 - https://github.com/habuma/spring-ai-rag-example
 - https://github.com/chenkunyun/spring-boot-assembly/tree/master
+- https://docs.vespa.ai/en/tutorials/news-1-getting-started.html
 
 
 Remember that spring-ai is still in development. 
