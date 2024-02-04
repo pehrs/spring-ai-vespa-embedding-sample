@@ -19,6 +19,7 @@ import java.io.PrintStream;
 import java.text.DateFormat;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +50,7 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
     // One final report
     this.output.println("FINAL REPORT----");
     this.report();
+    super.close();
   }
 
   /**
@@ -57,6 +59,7 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
    * durations to milliseconds, and not filtering metrics.
    */
   public static class Builder {
+
     private final MetricRegistry registry;
     private PrintStream output;
     private Locale locale;
@@ -71,6 +74,9 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
 
     private boolean showZeroMetrics;
 
+    private final Map<String, Double> histogramScaleFactor;
+
+
     private Builder(MetricRegistry registry) {
       this.registry = registry;
       this.output = System.out;
@@ -84,6 +90,12 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
       this.shutdownExecutorOnStop = true;
       this.disabledMetricAttributes = Collections.emptySet();
       this.showZeroMetrics = false;
+      this.histogramScaleFactor = new HashMap<>();
+    }
+
+    public ConsoleTableReporter.Builder histogramScaleFactor(String name, Double scale) {
+      this.histogramScaleFactor.put(name, scale);
+      return this;
     }
 
     public ConsoleTableReporter.Builder showZeroMetrics(boolean showZeroMetrics) {
@@ -94,11 +106,11 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
     /**
      * Specifies whether or not, the executor (used for reporting) will be stopped with same time
      * with reporter. Default value is true. Setting this parameter to false, has the sense in
-     * combining with providing external managed executor via {@link
-     * #scheduleOn(ScheduledExecutorService)}.
+     * combining with providing external managed executor via
+     * {@link #scheduleOn(ScheduledExecutorService)}.
      *
      * @param shutdownExecutorOnStop if true, then executor will be stopped in same time with this
-     *     reporter
+     *                               reporter
      * @return {@code this}
      */
     public ConsoleTableReporter.Builder shutdownExecutorOnStop(boolean shutdownExecutorOnStop) {
@@ -226,7 +238,8 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
           executor,
           shutdownExecutorOnStop,
           disabledMetricAttributes,
-          showZeroMetrics);
+          showZeroMetrics,
+          histogramScaleFactor);
     }
   }
 
@@ -236,6 +249,8 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
   private final Locale locale;
   private final Clock clock;
   private final DateFormat dateFormat;
+
+  private final Map<String, Double> histogramScaleFactor;
 
   private ConsoleTableReporter(
       MetricRegistry registry,
@@ -249,7 +264,8 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
       ScheduledExecutorService executor,
       boolean shutdownExecutorOnStop,
       Set<MetricAttribute> disabledMetricAttributes,
-      boolean skipZeroMetrics) {
+      boolean skipZeroMetrics,
+      final Map<String, Double> histogramScaleFactor) {
     super(
         registry,
         "console-reporter",
@@ -265,10 +281,15 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
     this.dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM, locale);
     dateFormat.setTimeZone(timeZone);
     this.showZeroMetrics = skipZeroMetrics;
+    this.histogramScaleFactor = histogramScaleFactor;
   }
 
   private static boolean hasAnyValues(Map<String, ? extends Counting> meterMap) {
     return meterMap.values().stream().filter(meter -> meter.getCount() > 0).count() > 0;
+  }
+
+  private static boolean hasAnyGaugeValues(Map<String, Gauge> meterMap) {
+    return meterMap.values().stream().filter(meter -> meter.getValue() != null).count() > 0;
   }
 
   @Override
@@ -283,40 +304,41 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
     printWithBanner(dateTime, '=');
     output.println();
 
-    if (!gauges.isEmpty()) {
+    if (this.showZeroMetrics || (!histograms.isEmpty() && hasAnyGaugeValues(gauges))) {
       printWithBanner("-- Gauges", '-');
+      printGaugeTitleRow();
       for (Map.Entry<String, Gauge> entry : gauges.entrySet()) {
-        output.println(entry.getKey());
-        printGauge(entry.getValue());
+        printGauge(entry.getKey(), entry.getValue());
       }
       output.println();
     }
 
-    if (!counters.isEmpty()) {
+    if (this.showZeroMetrics || (!histograms.isEmpty() && hasAnyValues(counters))) {
       printWithBanner("-- Counters", '-');
+      printCounterTitleRow();
       for (Map.Entry<String, Counter> entry : counters.entrySet()) {
-        output.println(entry.getKey());
-        printCounter(entry);
+        // output.println(entry.getKey());
+        printCounter(entry.getKey(), entry);
       }
       output.println();
     }
 
-    if (this.showZeroMetrics || (!histograms.isEmpty() &&  hasAnyValues(histograms))) {
+    if (this.showZeroMetrics || (!histograms.isEmpty() && hasAnyValues(histograms))) {
       printWithBanner("-- Histograms", '-');
       printHistogramTitleRow();
       for (Map.Entry<String, Histogram> entry : histograms.entrySet()) {
-        if(this.showZeroMetrics || entry.getValue().getCount() > 0) {
+        if (this.showZeroMetrics || entry.getValue().getCount() > 0) {
           printHistogram(entry.getKey(), entry.getValue());
         }
       }
       output.println();
     }
 
-    if (this.showZeroMetrics || (!meters.isEmpty() &&  hasAnyValues(meters))) {
+    if (this.showZeroMetrics || (!meters.isEmpty() && hasAnyValues(meters))) {
       printWithBanner("-- Meters", '-');
       printMeterTitleRow();
       for (Map.Entry<String, Meter> entry : meters.entrySet()) {
-        if(this.showZeroMetrics || entry.getValue().getCount() > 0) {
+        if (this.showZeroMetrics || entry.getValue().getCount() > 0) {
           printMeter(entry.getKey(), entry.getValue());
         }
       }
@@ -369,12 +391,29 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
         fmtIfEnabled(MetricAttribute.COUNT, String.format("%.2f", meter.getFifteenMinuteRate())));
   }
 
-  private void printCounter(Map.Entry<String, Counter> entry) {
-    output.printf(locale, "             count = %d%n", entry.getValue().getCount());
+  private static String counterFmt =
+      "%-24s %s\n";
+
+  private void printCounterTitleRow() {
+    output.printf(counterFmt, "name", "count");
   }
 
-  private void printGauge(Gauge<?> gauge) {
-    output.printf(locale, "             value = %s%n", gauge.getValue());
+  private void printCounter(String name, Map.Entry<String, Counter> entry) {
+    // output.printf(locale, "             count = %d%n", entry.getValue().getCount());
+    output.printf(counterFmt, name, "" + entry.getValue().getCount());
+  }
+
+  private static String gaugeFmt =
+      "%-24s %s\n";
+
+  private void printGaugeTitleRow() {
+    output.printf(gaugeFmt, "name", "value");
+  }
+
+  private void printGauge(String name, Gauge<?> entry) {
+    // output.printf(locale, "             value = %s%n", gauge.getValue());
+    output.printf(gaugeFmt, name, "" + entry.getValue());
+
   }
 
   // count min max mean stddev median 75% 95% 98% 99% 99.9%
@@ -402,20 +441,22 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
   private void printHistogram(String name, Histogram histogram) {
     Snapshot snapshot = histogram.getSnapshot();
 
+    Double scaleFactor = this.histogramScaleFactor.getOrDefault(name, 1.0d);
+
     output.printf(
         histogramFmt,
         name,
         fmtIfEnabled(MetricAttribute.COUNT, String.format("%d", histogram.getCount())),
-        fmtIfEnabled(MetricAttribute.MIN, String.format("%d", snapshot.getMin())),
-        fmtIfEnabled(MetricAttribute.MAX, String.format("%d", snapshot.getMax())),
-        fmtIfEnabled(MetricAttribute.MEAN, String.format("%.2f", snapshot.getMean())),
-        fmtIfEnabled(MetricAttribute.STDDEV, String.format("%.2f", snapshot.getStdDev())),
-        fmtIfEnabled(MetricAttribute.P50, String.format("%.2f", snapshot.getMedian())),
-        fmtIfEnabled(MetricAttribute.P75, String.format("%.2f", snapshot.get75thPercentile())),
-        fmtIfEnabled(MetricAttribute.P95, String.format("%.2f", snapshot.get95thPercentile())),
-        fmtIfEnabled(MetricAttribute.P98, String.format("%.2f", snapshot.get98thPercentile())),
-        fmtIfEnabled(MetricAttribute.P99, String.format("%.2f", snapshot.get99thPercentile())),
-        fmtIfEnabled(MetricAttribute.P999, String.format("%.2f", snapshot.get999thPercentile())));
+        fmtIfEnabled(MetricAttribute.MIN, String.format("%.2f", (snapshot.getMin() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.MAX, String.format("%.2f", (snapshot.getMax() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.MEAN, String.format("%.2f", (snapshot.getMean() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.STDDEV, String.format("%.2f", (snapshot.getStdDev() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.P50, String.format("%.2f", (snapshot.getMedian() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.P75, String.format("%.2f", (snapshot.get75thPercentile() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.P95, String.format("%.2f", (snapshot.get95thPercentile() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.P98, String.format("%.2f", (snapshot.get98thPercentile() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.P99, String.format("%.2f", (snapshot.get99thPercentile() / scaleFactor))),
+        fmtIfEnabled(MetricAttribute.P999, String.format("%.2f", (snapshot.get999thPercentile() / scaleFactor))));
   }
 
   private void printTimer(Timer timer) {
@@ -535,7 +576,7 @@ public class ConsoleTableReporter extends ScheduledReporter implements Closeable
   /**
    * Print only if the attribute is enabled
    *
-   * @param type Metric attribute
+   * @param type   Metric attribute
    * @param status Status to be logged
    */
   private void printIfEnabled(MetricAttribute type, String status) {

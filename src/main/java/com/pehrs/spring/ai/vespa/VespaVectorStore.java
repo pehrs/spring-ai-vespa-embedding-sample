@@ -33,7 +33,7 @@ public class VespaVectorStore implements VectorStore {
   private static Logger log = LoggerFactory.getLogger(VespaVectorStore.class);
 
   private final EmbeddingClient embeddingClient;
-  private final WebClient webClient;
+  // private final WebClient webClient;
 
   private static ObjectMapper objectMapper = new ObjectMapper();
 
@@ -45,6 +45,7 @@ public class VespaVectorStore implements VectorStore {
   private final Meter insertMeter;
   private final Meter queryMeter;
   private final String vespaFullNs;
+  private final ExchangeStrategies strategies;
   private String queryTemplate;
 
   // Not strictly needed, I just wanted to see some progress while inserting document
@@ -69,15 +70,15 @@ public class VespaVectorStore implements VectorStore {
         Charset.defaultCharset());
 
     int maxSize = 16 * 1024 * 1024;
-    final ExchangeStrategies strategies = ExchangeStrategies.builder()
+    this.strategies = ExchangeStrategies.builder()
         .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(maxSize))
         .build();
-    this.webClient = WebClient.builder()
-        .clientConnector(new ReactorClientHttpConnector(
-            HttpClient.create().followRedirect(true)
-        ))
-        .exchangeStrategies(strategies)
-        .build();
+//    this.webClient = WebClient.builder()
+//        .clientConnector(new ReactorClientHttpConnector(
+//            HttpClient.create().followRedirect(true)
+//        ))
+//        .exchangeStrategies(strategies)
+//        .build();
 
     this.vespaFullNs = "id:" + this.config.namespace + ":" + this.config.docType + "::";
 
@@ -111,7 +112,8 @@ public class VespaVectorStore implements VectorStore {
 
       // Call the document API
       start = System.currentTimeMillis();
-      String response = this.webClient.post()
+
+      String response = createWebClient().post()
           .uri(docApiUrl)
           .bodyValue(vespaJson)
           .header("Content-Type", "application/json")
@@ -124,6 +126,15 @@ public class VespaVectorStore implements VectorStore {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private WebClient createWebClient() {
+    return WebClient.builder()
+        .clientConnector(new ReactorClientHttpConnector(
+            HttpClient.create().followRedirect(true)
+        ))
+        .exchangeStrategies(this.strategies)
+        .build();
   }
 
   private String vespaDocApiUrl(String id) {
@@ -167,7 +178,7 @@ public class VespaVectorStore implements VectorStore {
       log.debug("yql: " + yqlRequest);
 
       start = System.currentTimeMillis();
-      String responseBody = webClient.post()
+      String responseBody = createWebClient().post()
           .uri(queryUrl)
           .bodyValue(yqlRequest)
           .accept(MediaType.APPLICATION_JSON)

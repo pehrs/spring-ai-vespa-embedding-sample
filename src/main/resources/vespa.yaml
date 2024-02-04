@@ -11,3 +11,4 @@ vespa:
   embeddingFieldName: embedding
   contentFieldName: content
   targetHits: 10
+  threadPoolSize: 18

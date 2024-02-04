@@ -1,0 +1,2 @@
+FROM mistral
+PARAMETER num_gpu 0

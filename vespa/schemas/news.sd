@@ -1,0 +1,35 @@
+schema news {
+    document news {
+        field news_id type string {
+            indexing: summary | attribute
+            attribute: fast-search
+        }
+        field title type string {
+            indexing: index | summary
+            index: enable-bm25
+        }
+        field abstract type string {
+            indexing: index | summary
+            index: enable-bm25
+        }
+        field url type string {
+            indexing: index | summary
+        }
+        field embedding type tensor<float>(d0[50]) {
+            indexing: attribute | index | summary
+            attribute {
+                distance-metric: dotproduct
+            }
+        }
+    }
+
+    fieldset default {
+        fields: title, abstract
+    }
+
+    rank-profile recommendation inherits default {
+        first-phase {
+          expression: closeness(field, embedding)
+        }
+    }
+}

@@ -13,6 +13,7 @@
     <redundancy>1</redundancy>
     <documents>
       <document type="embeddings" mode="index" />
+      <document type="news" mode="index" />
     </documents>
     <nodes>
       <node hostalias="node1" distribution-key="0" />

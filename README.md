@@ -23,6 +23,7 @@ to provide set of documents for the PromptTemplate. The service uses this [templ
 This code is built on-top of these samples:
 - https://github.com/habuma/spring-ai-rag-example
 - https://github.com/chenkunyun/spring-boot-assembly/tree/master
+- https://docs.vespa.ai/en/tutorials/news-1-getting-started.html
 
 
 Remember that spring-ai is still in development. 
@@ -154,3 +155,69 @@ align with your downloaded model (`ollama list`)
 
 The image above is created using [PlantUML](https://plantuml.com/command-line) 
 from the [spring-ai-vespa-embedding-sample.puml](spring-ai-vespa-embedding-sample.puml) file. 
+
+## Stats
+
+Running embeddings and inserts in parallel does not not yield any 
+significant performance improvement as the contention 
+is in the GPU cores. 
+
+### Parallel calls to embedder and vespa (Apache http5 async calls to vespa)
+
+Execution took 5 min 53.966 sec
+
+```
+
+-- Histograms ------------------------------------------------------------------
+name             COUNT   MIN     MAX     MEAN    STDDEV  P50     P75     P95     P98     P99     P99.9  
+embedding.ms     557     719     11756   10696.77 787.41  10891.00 11242.00 11414.00 11474.00 11514.00 11751.00
+insert.ms        557     6       490     240.28  142.41  236.00  362.00  463.00  481.00  483.00  490.00 
+rss.article.ms   140     89      1990    324.03  187.31  289.00  379.00  764.00  816.00  816.00  1990.00
+rss.source.ms    3       169     457     418.07  89.40   457.00  457.00  457.00  457.00  457.00  457.00 
+
+-- Meters ----------------------------------------------------------------------
+NAME             COUNT   MEAN    1m      5m      15m    
+insert.rps       557     1.58    4.34    1.49    0.82   
+
+
+2024-02-03 10:37:36.122 [NONE] [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2024-02-03 10:37:36.124 [NONE] [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+ 
+```
+
+### Spring batch
+
+Execution took 5 min 45.225 sec
+
+
+```
+-- Histograms ------------------------------------------------------------------
+name             COUNT   MIN     MAX     MEAN    STDDEV  P50     P75     P95     P98     P99     P99.9  
+embedding.ms     539     188     2765    1439.03 610.28  1320.00 1936.00 2597.00 2645.00 2680.00 2753.00
+insert.ms        539     6       31      10.10   1.44    10.00   11.00   12.00   12.00   13.00   16.00  
+rss.article.ms   139     83      1697    355.14  249.96  277.00  334.00  922.00  1123.00 1697.00 1697.00
+rss.source.ms    3       76      376     297.84  78.97   318.00  318.00  376.00  376.00  376.00  376.00 
+
+-- Meters ----------------------------------------------------------------------
+NAME             COUNT   MEAN    1m      5m      15m    
+insert.rps       539     1.57    1.62    1.09    0.50   
+
+```
+
+
+### Single thread
+
+Execution took 6 min 14.874 sec
+
+```
+-- Histograms ------------------------------------------------------------------
+name             COUNT   MIN     MAX     MEAN    STDDEV  P50     P75     P95     P98     P99     P99.9  
+embedding.ms     536     90      853     591.00  155.90  650.00  674.00  702.00  713.00  716.00  718.00 
+insert.ms        536     6       24      9.38    1.49    9.00    10.00   11.00   12.00   12.00   17.00  
+rss.article.ms   139     83      2297    333.73  317.82  267.00  334.00  717.00  1994.00 1994.00 2297.00
+rss.source.ms    3       84      448     217.15  22.01   217.00  217.00  217.00  217.00  217.00  448.00 
+
+-- Meters ----------------------------------------------------------------------
+NAME             COUNT   MEAN    1m      5m      15m    
+insert.rps       536     1.43    1.44    1.31    1.15   
+```

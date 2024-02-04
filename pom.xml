@@ -54,13 +54,24 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-loader</artifactId>
     </dependency>
-
     <!-- Simple console metrics -->
     <!-- FIXME: should be replaced with some spring boot observability stuff -->
     <dependency>
       <groupId>io.dropwizard.metrics</groupId>
       <artifactId>metrics-core</artifactId>
       <version>4.2.25</version>
+    </dependency>
+
+    <!-- For Async http calls -->
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
+      <version>5.3.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>33.0.0-jre</version>
     </dependency>
 
     <!--

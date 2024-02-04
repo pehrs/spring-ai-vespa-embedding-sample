@@ -1,6 +1,9 @@
 package com.pehrs.spring.ai.rss;
 
 
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Histogram;
+import com.codahale.metrics.MetricRegistry;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
@@ -12,6 +15,8 @@ import java.util.stream.Collectors;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.batch.item.ItemReader;
@@ -26,11 +31,19 @@ import reactor.netty.http.client.HttpClient;
 
 public class RssXmlAiDocumentReader implements ItemReader<Document> {
 
+  static final Logger log = LoggerFactory.getLogger(RssXmlAiDocumentReader.class);
+
   private final Stack<String> rssUrls;
   private final DocumentBuilder xmlBuilder;
   private final WebClient webClient;
+  private final Histogram rssSourceHistogram;
+  private final Histogram rssArticleHistogram;
 
-  public RssXmlAiDocumentReader(List<String> rssUrls)
+  private Stack<Document> urlDocs = new Stack();
+
+  private Stack<String> currentRssItemUrls = new Stack();
+
+  public RssXmlAiDocumentReader(MetricRegistry metricRegistry, List<String> rssUrls)
       throws ParserConfigurationException {
     this.rssUrls = new Stack();
     this.rssUrls.addAll(rssUrls);
@@ -41,23 +54,33 @@ public class RssXmlAiDocumentReader implements ItemReader<Document> {
         ))
         .exchangeStrategies(ExchangeStrategies.withDefaults())
         .build();
+
+    this.rssSourceHistogram = metricRegistry.histogram("rss.source.ms");
+    this.rssArticleHistogram = metricRegistry.histogram("rss.article.ms");
+    metricRegistry.register("rss.articles.pending",
+        (Gauge<Integer>) () -> currentRssItemUrls.size());
+    metricRegistry.register("rss.sources.pending",
+        (Gauge<Integer>) () -> urlDocs.size());
   }
 
   @Override
-  public Document read()
+  public synchronized Document read()
       throws Exception {
 
-    if(urlDocs.empty()) {
+    if (urlDocs.empty()) {
       String url = nextUrl();
 
       if (url == null) {
         return null;
       }
       try {
+        log.trace("Reading RSS article: "+ url);
+        long start = System.currentTimeMillis();
         Resource xmlResource = new UrlResource(url);
         TikaDocumentReader documentReader = new TikaDocumentReader(xmlResource);
         List<Document> documents =
             documentReader.get();
+        this.rssArticleHistogram.update(System.currentTimeMillis() - start);
         urlDocs.addAll(documents);
       } catch (RuntimeException ex) {
         // Let's skip to the next url...
@@ -65,16 +88,12 @@ public class RssXmlAiDocumentReader implements ItemReader<Document> {
       }
     }
 
-    if(urlDocs.empty()) {
+    if (urlDocs.empty()) {
       return null;
     }
 
     return urlDocs.pop();
   }
-
-  private Stack<Document> urlDocs = new Stack();
-
-  private Stack<String> currentRssItemUrls = new Stack();
 
   private String nextUrl() throws IOException, SAXException {
     if (currentRssItemUrls.empty()) {
@@ -100,10 +119,13 @@ public class RssXmlAiDocumentReader implements ItemReader<Document> {
       return new Stack();
     }
     String rssUrl = rssUrls.pop();
+    log.info("Reading RSS source: "+ rssUrl);
+    long start = System.currentTimeMillis();
     String responseBody = webClient.get()
         .uri(rssUrl)
         .accept(MediaType.APPLICATION_RSS_XML)
         .retrieve().bodyToMono(String.class).block();
+    this.rssSourceHistogram.update(System.currentTimeMillis() - start);
 
     if (responseBody == null) {
       return new Stack();

@@ -4,11 +4,14 @@ import com.codahale.metrics.Clock;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Reporter;
 import com.pehrs.spring.ai.util.ConsoleTableReporter;
+import com.pehrs.spring.ai.vespa.VespaAsyncHttp5VectorStore;
 import com.pehrs.spring.ai.vespa.VespaConfig;
-import com.pehrs.spring.ai.vespa.VespaVectorStore;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.TimeUnit;
 import org.springframework.ai.embedding.EmbeddingClient;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -23,19 +26,25 @@ public class PopulateVespaVectorStore {
 
   public static void main(String[] args) throws Exception {
 
+    // FIXME: Is this needed?
     Hooks.enableAutomaticContextPropagation();
 
+    long start = System.currentTimeMillis();
     SpringApplication app = new SpringApplication(PopulateVespaVectorStore.class);
     app.setWebApplicationType(WebApplicationType.NONE);
     ApplicationContext ctx = app.run(args);
     SpringApplication.exit(ctx);
+    long ms = System.currentTimeMillis() - start;
+    Duration duration = Duration.of(ms, ChronoUnit.MILLIS);
+    System.out.println("Execution took " + duration);
   }
 
   @Bean
-  public VespaVectorStore vectorStore(MetricRegistry metricRegistry, Reporter reporter,
+  public VectorStore vectorStore(MetricRegistry metricRegistry, Reporter reporter,
       EmbeddingClient embeddingClient, VespaConfig vespaConfig)
       throws IOException {
-    return new VespaVectorStore(metricRegistry, embeddingClient, vespaConfig);
+    return new VespaAsyncHttp5VectorStore(metricRegistry, embeddingClient, vespaConfig);
+    // return new VespaVectorStore(metricRegistry, embeddingClient, vespaConfig);
   }
 
   @Bean(destroyMethod = "close")
@@ -44,7 +53,7 @@ public class PopulateVespaVectorStore {
         .withClock(Clock.defaultClock())
         .outputTo(System.out)
         .build();
-    reporter.start(4, 5, TimeUnit.SECONDS);
+    reporter.start(2, 2, TimeUnit.SECONDS);
     return reporter;
   }
 

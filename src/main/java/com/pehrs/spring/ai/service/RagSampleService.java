@@ -3,8 +3,8 @@ package com.pehrs.spring.ai.service;
 import com.codahale.metrics.Clock;
 import com.codahale.metrics.MetricRegistry;
 import com.pehrs.spring.ai.util.ConsoleTableReporter;
+import com.pehrs.spring.ai.vespa.VespaAsyncHttp5VectorStore;
 import com.pehrs.spring.ai.vespa.VespaConfig;
-import com.pehrs.spring.ai.vespa.VespaVectorStore;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 import org.springframework.ai.embedding.EmbeddingClient;
@@ -26,9 +26,9 @@ public class RagSampleService {
   private String vectorStorePath;
 
   @Bean
-  VespaVectorStore vespaVectorStore(MetricRegistry metricRegistry, EmbeddingClient embeddingClient, VespaConfig config)
+  VespaAsyncHttp5VectorStore vespaVectorStore(MetricRegistry metricRegistry, EmbeddingClient embeddingClient, VespaConfig config)
       throws IOException {
-    VespaVectorStore vespaVectorStore = new VespaVectorStore(metricRegistry, embeddingClient, config);
+    VespaAsyncHttp5VectorStore vespaVectorStore = new VespaAsyncHttp5VectorStore(metricRegistry, embeddingClient, config);
     return vespaVectorStore;
   }
 
